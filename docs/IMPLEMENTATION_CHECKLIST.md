@@ -9,6 +9,7 @@
 ## Table of Contents
 
 0. [Repo + Project Bootstrapping](#0-repo--project-bootstrapping)
+0b. [Auth (Auth.js)](#0b-auth-authjs)
 1. [Core UI Routes (Skeleton)](#1-core-ui-routes-skeleton)
 2. [Fabric Editor Foundation](#2-fabric-editor-foundation-client-only)
 3. [State Management (Editor Store)](#3-state-management-editor-store)
@@ -47,51 +48,71 @@
 
 ---
 
+## 0b. Auth (Auth.js)
+
+- [ ] Install Auth.js + Prisma adapter; add Auth.js models to Prisma and run migration
+- [ ] Configure auth (`auth.ts`), API route `api/auth/[...nextauth]`, SessionProvider in layout
+- [ ] Sign-in / sign-up pages and header (sign in, sign out)
+- [ ] Tie designs to user: set `Design.userId` from session in save-design API
+
+**Detailed checklist:** [docs/AUTH_CHECKLIST.md](docs/AUTH_CHECKLIST.md)  
+**Plan & architecture:** [docs/AUTH_PLAN.md](docs/AUTH_PLAN.md)
+
+---
+
 ## 1. Core UI Routes (Skeleton)
 
-- [ ] `/create` page with:
-  - [ ] Prompt input
-  - [ ] Style selector (sticker / bold-outline)
-  - [ ] Generate button + loading state
-  - [ ] Error toast/alert
-- [ ] `/design/[id]` page with:
-  - [ ] Editor layout shell (left accessories, center canvas, right properties/export)
-  - [ ] Placeholder panels + responsive layout
+- [x] `/create` page with:
+  - [x] Prompt input
+  - [x] Style selector (sticker / bold-outline)
+  - [x] Generate button + loading state
+  - [x] Error toast/alert
+- [x] `/design/[id]` page with:
+  - [x] Editor layout shell (left accessories, center canvas, right properties/export)
+  - [x] Placeholder panels + responsive layout
 
 ---
 
 ## 2. Fabric Editor Foundation (Client-Only)
 
-- [ ] Install Fabric (`fabric`)
-- [ ] Create `FabricCanvas.tsx` (client component)
-  - [ ] Initialize canvas on mount
-  - [ ] Dispose on unmount
-  - [ ] `preserveObjectStacking = true`
-  - [ ] Default canvas size (512×512) + scaling for viewport
-- [ ] Add selection handling
-  - [ ] On select: update store with object id/type
-  - [ ] On clear: unset selected
-- [ ] Add object transform controls
-  - [ ] Move/scale/rotate enabled
-  - [ ] Lock/unlock toggle
-- [ ] Add Z-order controls
-  - [ ] Bring forward/back
-  - [ ] Send to front/back
+- [x] Install Fabric (`fabric`)
+- [x] Create `FabricCanvas.tsx` (client component)
+  - [x] Initialize canvas on mount
+  - [x] Dispose on unmount (`destroy()`)
+  - [x] `preserveObjectStacking = true`
+  - [x] Default canvas size (512×512) + scaling for viewport (container max-width)
+- [x] Add selection handling
+  - [x] On select: `onSelectionChange(objectId, objectType)` callback (store in §3)
+  - [x] On clear: unset selected
+- [x] Add object transform controls
+  - [x] Move/scale/rotate enabled (Fabric default)
+  - [x] Lock/unlock toggle (toolbar + `setLockSelected`)
+- [x] Add Z-order controls
+  - [x] Bring forward/back (`bringObjectForward`, `sendObjectBackwards`)
+  - [x] Send to front/back (`bringObjectToFront`, `sendObjectToBack`)
 
 > **Definition of Done:** You can add a dummy object to the canvas and edit it.
+
+### Next steps (Section 2 plan)
+
+1. **FabricCanvas.tsx** – Client component: ref to container, `useEffect` create `new Canvas(el, { width: 512, height: 512, preserveObjectStacking: true })`, `destroy()` on unmount; optional viewport scaling via `setDimensions`/CSS.
+2. **Selection** – Subscribe to `selection:created` / `selection:cleared` (and `selection:updated`); callbacks or Zustand store (store in §3) with selected object id/type.
+3. **Transforms** – Fabric provides move/scale/rotate by default; add lock/unlock via object `lockMovementX/Y`, `lockRotation`, `lockScalingX/Y` (exposed later via Properties panel).
+4. **Z-order** – Use canvas `bringObjectToFront`, `sendObjectToBack`, `bringObjectForward`, `sendObjectBackwards`; expose via toolbar or Properties panel.
+5. **DoD** – Add one dummy object (e.g. `Rect`) on first load; replace design page canvas placeholder with `<FabricCanvas />`.
 
 ---
 
 ## 3. State Management (Editor Store)
 
-- [ ] Add Zustand store
-- [ ] Store fields:
-  - [ ] Canvas reference (or accessors)
-  - [ ] `selectedObjectId`
-  - [ ] `layers[]` derived metadata (id, name, zIndex, locked, hidden)
-- [ ] Implement "sync layers" function
-  - [ ] Rebuild layer list on object add/remove/reorder
-- [ ] Wire selection events to store
+- [x] Add Zustand store
+- [x] Store fields:
+  - [x] Canvas reference (or accessors)
+  - [x] `selectedObjectId`
+  - [x] `layers[]` derived metadata (id, name, zIndex, locked, hidden)
+- [x] Implement "sync layers" function
+  - [x] Rebuild layer list on object add/remove/reorder
+- [x] Wire selection events to store
 
 > **Definition of Done:** Layer panel can list canvas objects and selecting a row selects the object.
 
@@ -99,14 +120,14 @@
 
 ## 4. SVG Loading Pipeline (No AI Yet)
 
-- [ ] Implement SVG loader utility
-  - [ ] `loadSvgFromString(svg)` into Fabric
-  - [ ] Group SVG elements
-  - [ ] Center on canvas
-  - [ ] Make base layer "lockable"
-- [ ] Add "Upload SVG" dev-only button (for testing)
-  - [ ] Paste SVG text area OR file upload
-- [ ] Ensure Fabric load failure shows a friendly error
+- [x] Implement SVG loader utility
+  - [x] `loadSvgFromString(svg)` into Fabric
+  - [x] Group SVG elements
+  - [x] Center on canvas
+  - [x] Make base layer "lockable"
+- [x] Add "Upload SVG" dev-only button (for testing)
+  - [x] Paste SVG text area OR file upload
+- [x] Ensure Fabric load failure shows a friendly error
 
 > **Definition of Done:** You can paste an SVG and it appears on canvas reliably.
 
@@ -114,12 +135,12 @@
 
 ## 5. Database + Prisma
 
-- [ ] Add Prisma + Postgres connection
-- [ ] Create `Design` model
-  - [ ] `id`, `baseSvgUrl`, `canvasJson`, timestamps, optional `thumbnailUrl`
-- [ ] Run migrations
-- [ ] Add DB helper (`lib/db.ts`)
-- [ ] Add basic seed script (optional)
+- [x] Add Prisma + Postgres connection
+- [x] Create `Design` model
+  - [x] `id`, `baseSvgUrl`, `canvasJson`, timestamps, optional `thumbnailUrl`
+- [x] Run migrations
+- [x] Add DB helper (`lib/db.ts`)
+- [x] Add basic seed script (optional)
 
 > **Definition of Done:** You can create/read a Design record in dev.
 
@@ -127,14 +148,14 @@
 
 ## 6. Object Storage (S3 / R2)
 
-- [ ] Choose provider: AWS S3 or Cloudflare R2
-- [ ] Implement `lib/storage.ts`
-  - [ ] `putObject(key, body, contentType)`
-  - [ ] `getSignedUrl(key)` (if private)
-  - [ ] Public bucket path strategy if public files
-- [ ] Define folder conventions:
+- [x] Choose provider: AWS S3 or Cloudflare R2
+- [x] Implement `lib/storage.ts`
+  - [x] `putObject(key, body, contentType)`
+  - [x] `getSignedUrl(key)` (if private)
+  - [x] Public bucket path strategy if public files
+- [x] Define folder conventions:
 
-```
+```filepath
 svgs/{id}.svg
 exports/{designId}/{size}.png
 thumbnails/{designId}.png
@@ -147,14 +168,14 @@ assets/{pack}/{asset}.svg
 
 ## 7. SVG Sanitization (Mandatory)
 
-- [ ] Implement `lib/sanitize-svg.ts`
-  - [ ] Strip `<script>`, `<foreignObject>`
-  - [ ] Strip `on*` attributes
-  - [ ] Block external refs (`href`, `xlink:href`) unless data-safe
-  - [ ] Enforce `viewBox` and `width/height` to 512
-- [ ] Add unit tests for sanitizer
-  - [ ] "Bad SVG" examples
-  - [ ] "Allowed SVG" examples
+- [x] Implement `lib/sanitize-svg.ts`
+  - [x] Strip `<script>`, `<foreignObject>`
+  - [x] Strip `on*` attributes
+  - [x] Block external refs (`href`, `xlink:href`) unless data-safe
+  - [x] Enforce `viewBox` and `width/height` to 512
+- [x] Add unit tests for sanitizer
+  - [x] "Bad SVG" examples
+  - [x] "Allowed SVG" examples
 
 > **Definition of Done:** Sanitizer rejects unsafe SVG and normalizes safe SVG consistently.
 
@@ -162,19 +183,19 @@ assets/{pack}/{asset}.svg
 
 ## 8. AI Provider Integration (SVG Direct)
 
-- [ ] Implement `lib/ai.ts` provider wrapper
-  - [ ] Build prompt template for sticker SVG
-  - [ ] Call provider endpoint
-  - [ ] Return raw SVG string
-  - [ ] Normalize error handling (timeouts, invalid response)
-- [ ] Create `POST /api/generate-svg`
-  - [ ] Zod validate request
-  - [ ] Rate limit
-  - [ ] Call AI provider
-  - [ ] Sanitize SVG
-  - [ ] Upload sanitized SVG to storage
-  - [ ] Return `svgUrl`, `width/height`
-- [ ] Add request logging (duration, prompt length, response size)
+- [x] Implement `lib/ai.ts` provider wrapper
+  - [x] Build prompt template for sticker SVG
+  - [x] Call provider endpoint
+  - [x] Return raw SVG string
+  - [x] Normalize error handling (timeouts, invalid response)
+- [x] Create `POST /api/generate-svg`
+  - [x] Zod validate request
+  - [x] Rate limit
+  - [x] Call AI provider
+  - [x] Sanitize SVG
+  - [x] Upload sanitized SVG to storage
+  - [x] Return `svgUrl`, `width/height`
+- [x] Add request logging (duration, prompt length, response size)
 
 > **Definition of Done:** `/create` can generate an SVG from a prompt and load it into Fabric.
 
@@ -182,24 +203,24 @@ assets/{pack}/{asset}.svg
 
 ## 9. Design Save/Load
 
-- [ ] Implement Fabric serialization
+- [x] Implement Fabric serialization
 
 ```javascript
 canvas.toJSON([...customProps])
 // Include name, layerType, assetId as custom props
 ```
 
-- [ ] Create `POST /api/save-design`
-  - [ ] Validate payload (`baseSvgUrl` + `canvasJson`)
-  - [ ] Create DB record
-  - [ ] Return `designId`
-- [ ] Create `GET /api/load-design?id=...`
-  - [ ] Fetch from DB
-  - [ ] Return `baseSvgUrl` + `canvasJson`
-- [ ] Implement `/design/[id]` loader
-  - [ ] Load base SVG (if needed)
-  - [ ] `canvas.loadFromJSON(canvasJson, ...)`
-  - [ ] Ensure object URLs are still resolvable
+- [x] Create `POST /api/save-design`
+  - [x] Validate payload (`baseSvgUrl` + `canvasJson`)
+  - [x] Create DB record
+  - [x] Return `designId`
+- [x] Create `GET /api/load-design?id=...`
+  - [x] Fetch from DB
+  - [x] Return `baseSvgUrl` + `canvasJson`
+- [x] Implement `/design/[id]` loader
+  - [x] Load base SVG (if needed)
+  - [x] `canvas.loadFromJSON(canvasJson, ...)`
+  - [x] Ensure object URLs are still resolvable
 
 > **Definition of Done:** You can generate → edit → save → refresh → continue editing.
 
@@ -207,19 +228,19 @@ canvas.toJSON([...customProps])
 
 ## 10. Accessories System (Your SVG Pack)
 
-- [ ] Decide asset format:
-  - [ ] SVG files + JSON manifest
-- [ ] Create `public/assets/manifest.json` (or DB table later)
-  - [ ] `id`, `name`, `category`, `tags`, `svgUrl`, `defaultZ`
-- [ ] Implement `AccessoryPanel`
-  - [ ] Category tabs
-  - [ ] Search/filter by tags
-  - [ ] Click to add accessory to canvas
-- [ ] Implement add-accessory behavior
-  - [ ] Load SVG
-  - [ ] Position at center or anchor
-  - [ ] Set `layerType="accessory"`, `assetId`
-  - [ ] Apply default z-index
+- [x] Decide asset format:
+  - [x] SVG files + JSON manifest
+- [x] Create `public/assets/manifest.json` (or DB table later)
+  - [x] `id`, `name`, `category`, `tags`, `svgUrl`, `defaultZ`
+- [x] Implement `AccessoryPanel`
+  - [x] Category tabs
+  - [x] Search/filter by tags
+  - [x] Click to add accessory to canvas
+- [x] Implement add-accessory behavior
+  - [x] Load SVG
+  - [x] Position at center or anchor
+  - [x] Set `layerType="accessory"`, `assetId`
+  - [x] Apply default z-index
 
 > **Definition of Done:** You can add multiple fantasy accessories and edit them independently.
 
@@ -227,17 +248,17 @@ canvas.toJSON([...customProps])
 
 ## 11. Properties Panel (Quality-of-Life)
 
-- [ ] Selected object controls:
-  - [ ] Position (x/y)
-  - [ ] Scale
-  - [ ] Rotation
-  - [ ] Opacity
-  - [ ] Flip H/V
-  - [ ] Lock toggle
-- [ ] Color editing (MVP version)
-  - [ ] If SVG objects have fills/strokes: basic color replace
-  - [ ] Palette selector (apply to selected)
-- [ ] Reset transforms button
+- [x] Selected object controls:
+  - [x] Position (x/y)
+  - [x] Scale
+  - [x] Rotation
+  - [x] Opacity
+  - [x] Flip H/V
+  - [x] Lock toggle
+- [x] Color editing (MVP version)
+  - [x] If SVG objects have fills/strokes: basic color replace
+  - [x] Palette selector (apply to selected)
+- [x] Reset transforms button
 
 > **Definition of Done:** Users can fine-tune without fighting drag handles.
 
@@ -245,14 +266,14 @@ canvas.toJSON([...customProps])
 
 ## 12. Export System (SVG + PNG Presets)
 
-- [ ] Export SVG button
-  - [ ] `canvas.toSVG()` download
-- [ ] Export PNG buttons (128/256/512)
-  - [ ] `toDataURL({ multiplier })`
-  - [ ] Ensure transparent background
-- [ ] Optional: upload exports to storage
-  - [ ] Store `exports/` files
-  - [ ] Return download URLs
+- [x] Export SVG button
+  - [x] `canvas.toSVG()` download
+- [x] Export PNG buttons (128/256/512)
+  - [x] `toDataURL({ multiplier })`
+  - [x] Ensure transparent background
+- [x] Optional: upload exports to storage
+  - [x] Store `exports/` files
+  - [x] Return download URLs
 
 > **Definition of Done:** Exports match what's shown on canvas.
 
@@ -260,10 +281,10 @@ canvas.toJSON([...customProps])
 
 ## 13. Thumbnail Generation
 
-- [ ] Generate thumbnail on save (client or server)
-  - [ ] Client: `toDataURL({ multiplier: 0.25 })`
-  - [ ] Upload to storage
-  - [ ] Save `thumbnailUrl`
+- [x] Generate thumbnail on save (client or server)
+  - [x] Client: `toDataURL({ multiplier: 0.25 })`
+  - [x] Upload to storage
+  - [x] Save `thumbnailUrl`
 - [ ] Add thumbnails to "My Designs" (if you add auth later)
 
 ---

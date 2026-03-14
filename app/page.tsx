@@ -1,64 +1,94 @@
-import Image from "next/image";
+import type { Metadata } from "next";
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+
+export const metadata: Metadata = {
+  title: "Fantasy Emoji Forge",
+  description:
+    "Create and customize fantasy emojis. Generate SVG emojis from a prompt, add accessories, and export for stickers or avatars.",
+};
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="relative min-h-screen overflow-hidden bg-linear-to-b from-violet-50 via-indigo-50/80 to-slate-100 dark:from-violet-950/95 dark:via-indigo-950/90 dark:to-slate-950">
+      {/* Ambient glow orbs */}
+      <div
+        className="pointer-events-none absolute -left-40 -top-40 h-80 w-80 rounded-full bg-violet-400/30 blur-[120px] dark:bg-violet-500/20"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute -bottom-40 -right-40 h-96 w-96 rounded-full bg-fuchsia-400/20 blur-[120px] dark:bg-fuchsia-500/15"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute left-1/2 top-1/4 h-64 w-64 -translate-x-1/2 rounded-full bg-amber-200/25 blur-[100px] dark:bg-amber-500/10"
+        aria-hidden
+      />
+
+      <main className="relative mx-auto flex min-h-screen max-w-3xl flex-col items-center justify-center gap-12 px-6 py-20">
+        <header className="text-center">
+          <p className="mb-4 flex items-center justify-center gap-2 text-sm font-medium uppercase tracking-[0.2em] text-violet-600 dark:text-violet-400">
+            <span className="opacity-80">✦</span>
+            <span>Forge your legend</span>
+            <span className="opacity-80">✦</span>
           </p>
+          <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
+            <span className="bg-linear-to-r from-violet-700 via-fuchsia-600 to-amber-600 bg-clip-text text-transparent dark:from-violet-300 dark:via-fuchsia-300 dark:to-amber-200">
+              Fantasy Emoji
+            </span>
+            <br />
+            <span className="mt-1 block text-zinc-800 dark:text-zinc-100">Forge</span>
+          </h1>
+          <p className="mt-5 max-w-lg text-lg leading-relaxed text-zinc-600 dark:text-zinc-400">
+            Summon a base emoji from a single prompt. Crown it with horns, auras, and magic—then
+            export your creation at 128, 256, or 512px.
+          </p>
+        </header>
+
+        <div className="w-full max-w-md rounded-2xl border border-violet-200/60 bg-white/70 px-8 py-8 shadow-xl shadow-violet-900/10 backdrop-blur-sm dark:border-violet-500/20 dark:bg-white/5 dark:shadow-violet-950/30">
+          <p className="mb-6 text-center text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
+            Choose sticker or bold-outline style, then edit on the canvas and add accessories
+            before export.
+          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <Button
+              asChild
+              size="lg"
+              className="bg-linear-to-r from-violet-600 to-fuchsia-600 font-semibold text-white shadow-lg shadow-violet-500/25 transition hover:from-violet-500 hover:to-fuchsia-500 hover:shadow-violet-500/30 dark:shadow-violet-500/20 dark:hover:shadow-violet-500/25"
+            >
+              <Link href="/create" aria-label="Go to create page to generate an emoji">
+                Create an emoji
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="border-violet-300 font-medium text-violet-700 hover:bg-violet-50 hover:text-violet-800 dark:border-violet-500/50 dark:text-violet-300 dark:hover:bg-violet-500/10 dark:hover:text-violet-200"
+            >
+              <Link href="/design/demo" aria-label="Open editor with demo design">
+                Open editor
+              </Link>
+            </Button>
+          </div>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+
+        <footer className="mt-auto flex gap-4 pt-12 text-center text-xs text-zinc-500 dark:text-zinc-400">
+          <Link
+            href="/create"
+            className="transition hover:text-violet-600 hover:underline dark:hover:text-violet-400"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Create
+          </Link>
+          <span className="select-none">·</span>
+          <Link
+            href="/design/demo"
+            className="transition hover:text-violet-600 hover:underline dark:hover:text-violet-400"
           >
-            Documentation
-          </a>
-        </div>
+            Editor
+          </Link>
+        </footer>
       </main>
     </div>
   );

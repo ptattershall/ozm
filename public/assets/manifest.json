@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "categories": ["horns", "eyes", "auras", "fx", "weapons"],
+  "assets": [
+    {
+      "id": "horns-1",
+      "name": "Curved horns",
+      "category": "horns",
+      "tags": ["horns", "fantasy", "demon"],
+      "svgUrl": "/assets/fantasy/horns-1.svg",
+      "defaultZ": 0
+    },
+    {
+      "id": "star-sparkle",
+      "name": "Star sparkle",
+      "category": "fx",
+      "tags": ["sparkle", "star", "magic", "crystal"],
+      "svgUrl": "/assets/fantasy/star-sparkle.svg",
+      "defaultZ": 0
+    },
+    {
+      "id": "crystal",
+      "name": "Crystal",
+      "category": "auras",
+      "tags": ["crystal", "magic", "gem"],
+      "svgUrl": "/assets/fantasy/crystal.svg",
+      "defaultZ": 1
+    },
+    {
+      "id": "flame",
+      "name": "Flame",
+      "category": "fx",
+      "tags": ["fire", "flame", "aura"],
+      "svgUrl": "/assets/fantasy/flame.svg",
+      "defaultZ": 0
+    },
+    {
+      "id": "eye-glowing",
+      "name": "Glowing eye",
+      "category": "eyes",
+      "tags": ["eye", "glow", "magic"],
+      "svgUrl": "/assets/fantasy/eye-glowing.svg",
+      "defaultZ": 0
+    }
+  ]
+}
