@@ -28,7 +28,11 @@ export type FabricCanvasRef = {
   bringToFront: () => void;
   sendToBack: () => void;
   setLockSelected: (locked: boolean) => void;
+  /** Remove the currently selected object(s) from the canvas. */
+  removeSelectedObject: () => void;
 };
+
+const UNDO_THROTTLE_MS = 500;
 
 type FabricCanvasProps = {
   className?: string;
@@ -37,13 +41,33 @@ type FabricCanvasProps = {
   initialSvgUrl?: string | null;
   /** When set, load this canvas JSON (saved design). Takes precedence over initialSvgUrl when both exist. */
   initialCanvasJson?: string | null;
+  /** Called after object:modified (throttled). Use to push undo snapshot; skip if applying undo/redo. */
+  onObjectModifiedForUndo?: (getCanvasJson: () => string) => void;
+  /** Optional undo/redo: when provided, toolbar shows Undo/Redo buttons. */
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  /** Called once after initial SVG/JSON load. Use to push initial state to undo stack. */
+  onInitialLoad?: (getCanvasJson: () => string) => void;
   ref?: React.Ref<FabricCanvasRef | null>;
 };
 
 const syncLayersFromStore = () => useEditorStore.getState().syncLayers();
 
 function FabricCanvasInner(
-  { className, onSelectionChange, initialSvgUrl, initialCanvasJson }: FabricCanvasProps,
+  {
+    className,
+    onSelectionChange,
+    initialSvgUrl,
+    initialCanvasJson,
+    onObjectModifiedForUndo,
+    onUndo,
+    onRedo,
+    canUndo = false,
+    canRedo = false,
+    onInitialLoad,
+  }: FabricCanvasProps,
   forwardedRef: React.Ref<FabricCanvasRef | null>
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -119,6 +143,19 @@ function FabricCanvasInner(
       });
     });
   }, [runOnActive]);
+
+  const removeSelectedObject = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const active = canvas.getActiveObject();
+    if (active) {
+      canvas.remove(active);
+      canvas.discardActiveObject();
+      handleSelectionChange(null, null);
+      syncLayersFromStore();
+      canvas.requestRenderAll();
+    }
+  }, [handleSelectionChange]);
 
   const loadSvg = useCallback(async (svg: string) => {
     const canvas = canvasRef.current;
@@ -235,11 +272,19 @@ function FabricCanvasInner(
       }
     };
 
+    let undoThrottleId: ReturnType<typeof setTimeout> | null = null;
     const handleObjectAdded = () => syncLayersFromStore();
     const handleObjectRemoved = () => syncLayersFromStore();
     const handleObjectModified = () => {
       syncLayersFromStore();
       useEditorStore.getState().incrementObjectModified();
+      if (onObjectModifiedForUndo) {
+        if (undoThrottleId) clearTimeout(undoThrottleId);
+        undoThrottleId = setTimeout(() => {
+          undoThrottleId = null;
+          onObjectModifiedForUndo(getCanvasJson);
+        }, UNDO_THROTTLE_MS);
+      }
     };
 
     canvas.on("selection:created", handleSelectionCreated);
@@ -254,6 +299,7 @@ function FabricCanvasInner(
     setCanvasReady(true);
 
     return () => {
+      if (undoThrottleId) clearTimeout(undoThrottleId);
       setCanvasReady(false);
       useEditorStore.getState().setCanvasGetter(null);
       canvas.off("selection:created", handleSelectionCreated);
@@ -266,14 +312,21 @@ function FabricCanvasInner(
       canvasRef.current = null;
       if (canvasEl.parentNode) canvasEl.parentNode.removeChild(canvasEl);
     };
-  }, [handleSelectionChange, getCanvas]);
+  }, [handleSelectionChange, getCanvas, getCanvasJson, onObjectModifiedForUndo]);
 
+  const initialLoadFiredRef = useRef(false);
   useEffect(() => {
     const json = initialCanvasJsonRef.current;
     const url = initialSvgUrlRef.current;
     if (!canvasReady || !canvasRef.current) return;
+    const fireInitialLoad = () => {
+      if (!initialLoadFiredRef.current && onInitialLoad) {
+        initialLoadFiredRef.current = true;
+        onInitialLoad(getCanvasJson);
+      }
+    };
     if (json?.trim()) {
-      loadFromJSON(json);
+      loadFromJSON(json).then(() => fireInitialLoad());
       return;
     }
     if (!url) return;
@@ -285,6 +338,7 @@ function FabricCanvasInner(
         const text = await res.text();
         if (cancelled) return;
         await loadSvg(text);
+        if (!cancelled) fireInitialLoad();
       } catch {
         if (!cancelled) setSvgLoadError("Failed to load SVG from URL.");
       }
@@ -292,7 +346,7 @@ function FabricCanvasInner(
     return () => {
       cancelled = true;
     };
-  }, [initialSvgUrl, initialCanvasJson, canvasReady, loadSvg, loadFromJSON]);
+  }, [initialSvgUrl, initialCanvasJson, canvasReady, loadSvg, loadFromJSON, getCanvasJson, onInitialLoad]);
 
   const handleSvgFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -324,6 +378,7 @@ function FabricCanvasInner(
       bringToFront,
       sendToBack,
       setLockSelected,
+      removeSelectedObject,
     };
     if (typeof forwardedRef === "function") forwardedRef(api);
     else if (forwardedRef) (forwardedRef as React.MutableRefObject<FabricCanvasRef | null>).current = api;
@@ -331,7 +386,7 @@ function FabricCanvasInner(
       if (typeof forwardedRef === "function") forwardedRef(null);
       else if (forwardedRef) (forwardedRef as React.MutableRefObject<FabricCanvasRef | null>).current = null;
     };
-  }, [getCanvas, getCanvasJson, addDummyObject, addAccessory, loadSvg, loadFromJSON, bringForward, sendBackward, bringToFront, sendToBack, setLockSelected, forwardedRef]);
+  }, [getCanvas, getCanvasJson, addDummyObject, addAccessory, loadSvg, loadFromJSON, bringForward, sendBackward, bringToFront, sendToBack, setLockSelected, removeSelectedObject, forwardedRef]);
 
   return (
     <div className={className} ref={containerRef}>
@@ -394,6 +449,38 @@ function FabricCanvasInner(
             aria-label="Unlock selected"
           >
             Unlock
+          </button>
+          {typeof onUndo === "function" && (
+            <>
+              <span className="h-4 w-px bg-zinc-300 dark:bg-zinc-600" aria-hidden />
+              <button
+                type="button"
+                onClick={onUndo}
+                disabled={!canUndo}
+                className="rounded px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                aria-label="Undo"
+              >
+                Undo
+              </button>
+              <button
+                type="button"
+                onClick={onRedo}
+                disabled={!canRedo}
+                className="rounded px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 disabled:opacity-50 dark:text-zinc-300 dark:hover:bg-zinc-600"
+                aria-label="Redo"
+              >
+                Redo
+              </button>
+            </>
+          )}
+          <span className="h-4 w-px bg-zinc-300 dark:bg-zinc-600" aria-hidden />
+          <button
+            type="button"
+            onClick={removeSelectedObject}
+            className="rounded px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-200 dark:text-zinc-300 dark:hover:bg-zinc-600"
+            aria-label="Delete selected object"
+          >
+            Delete
           </button>
           <span className="h-4 w-px bg-zinc-300 dark:bg-zinc-600" aria-hidden />
           <button

@@ -133,7 +133,7 @@ export const CreatePageContent = () => {
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center">
+          <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:items-center sm:gap-2">
             <Button
               type="button"
               className="w-full sm:w-auto"
@@ -150,6 +150,22 @@ export const CreatePageContent = () => {
             >
               {isGenerating ? "Generating..." : "Generate emoji"}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full sm:w-auto"
+              disabled={isGenerating || !prompt.trim()}
+              aria-label="Regenerate with same prompt"
+              onClick={handleGenerateClick}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleGenerateClick();
+                }
+              }}
+            >
+              Regenerate
+            </Button>
           </div>
 
           {error && (
@@ -165,15 +181,30 @@ export const CreatePageContent = () => {
 
         <section className="flex w-full flex-1 items-stretch lg:w-1/2">
           <div className="flex w-full flex-col justify-between rounded-2xl border border-dashed border-zinc-300 bg-zinc-50/80 p-6 text-center text-sm text-zinc-500 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400">
-            <div className="space-y-2">
-              <p className="font-medium text-zinc-700 dark:text-zinc-200">
-                Preview
-              </p>
-              <p>
-                Click Generate to create your emoji. You&apos;ll be taken to the
-                editor to add accessories and export.
-              </p>
-            </div>
+            {isGenerating ? (
+              <div className="flex flex-col items-center gap-4" aria-live="polite">
+                <div
+                  className="h-32 w-32 animate-pulse rounded-2xl bg-zinc-200 dark:bg-zinc-700"
+                  aria-hidden
+                />
+                <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                  Generating your emoji…
+                </p>
+                <p className="text-xs">
+                  You&apos;ll be taken to the editor when ready.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="font-medium text-zinc-700 dark:text-zinc-200">
+                  Preview
+                </p>
+                <p>
+                  Click Generate to create your emoji. You&apos;ll be taken to the
+                  editor to add accessories and export.
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </main>

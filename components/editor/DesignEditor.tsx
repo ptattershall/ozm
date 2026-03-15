@@ -10,7 +10,13 @@ import { PropertiesPanel } from "@/components/editor/PropertiesPanel";
 import { ExportPanel } from "@/components/editor/ExportPanel";
 import { Button } from "@/components/ui/button";
 import { getThumbnailDataUrl } from "@/lib/export-canvas";
+import { useEditorStore } from "@/lib/store/editor-store";
 import type { AccessoryAsset } from "@/types/accessories";
+
+const DRAFT_STORAGE_KEY_PREFIX = "ozmoji-draft-";
+const DRAFT_SAVE_DEBOUNCE_MS = 2000;
+
+type DraftPayload = { baseSvgUrl: string; canvasJson: string; savedAt: number };
 
 export type DesignEditorProps = {
   designId: string;
@@ -23,20 +29,41 @@ export const DesignEditor = ({
   baseSvgUrlFromQuery,
 }: DesignEditorProps) => {
   const canvasRef = useRef<FabricCanvasRef | null>(null);
+  const skipPushUndoRef = useRef(false);
+  const lastSnapshotRef = useRef<string | null>(null);
+  const draftSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [baseSvgUrl, setBaseSvgUrl] = useState<string | null>(baseSvgUrlFromQuery);
   const [canvasJson, setCanvasJson] = useState<string | null>(null);
+  const [initialJsonToLoad, setInitialJsonToLoad] = useState<string | null>(null);
   const [loadState, setLoadState] = useState<"idle" | "loading" | "ready" | "error">(
     designId === "new" ? "ready" : "loading"
   );
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [accessoryError, setAccessoryError] = useState<string | null>(null);
+  const undoStack = useEditorStore((s) => s.undoStack);
+  const redoStack = useEditorStore((s) => s.redoStack);
+  const pushUndo = useEditorStore((s) => s.pushUndo);
+  const undo = useEditorStore((s) => s.undo);
+  const redo = useEditorStore((s) => s.redo);
 
   useEffect(() => {
     if (designId === "new") {
       setBaseSvgUrl(baseSvgUrlFromQuery);
       setCanvasJson(null);
       setLoadState("ready");
+      try {
+        const key = `${DRAFT_STORAGE_KEY_PREFIX}new`;
+        const raw = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+        const draft = raw ? (JSON.parse(raw) as DraftPayload) : null;
+        if (draft?.baseSvgUrl && draft.baseSvgUrl === baseSvgUrlFromQuery && draft.canvasJson) {
+          setInitialJsonToLoad(draft.canvasJson);
+        } else {
+          setInitialJsonToLoad(null);
+        }
+      } catch {
+        setInitialJsonToLoad(null);
+      }
       return;
     }
     let cancelled = false;
@@ -52,6 +79,18 @@ export const DesignEditor = ({
         }
         setBaseSvgUrl(data.baseSvgUrl ?? null);
         setCanvasJson(data.canvasJson ?? null);
+        try {
+          const key = `${DRAFT_STORAGE_KEY_PREFIX}${designId}`;
+          const raw = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+          const draft = raw ? (JSON.parse(raw) as DraftPayload) : null;
+          if (draft?.canvasJson) {
+            setInitialJsonToLoad(draft.canvasJson);
+          } else {
+            setInitialJsonToLoad(data.canvasJson ?? null);
+          }
+        } catch {
+          setInitialJsonToLoad(data.canvasJson ?? null);
+        }
         setLoadState("ready");
       } catch {
         if (!cancelled) setLoadState("error");
@@ -61,6 +100,15 @@ export const DesignEditor = ({
       cancelled = true;
     };
   }, [designId, baseSvgUrlFromQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (draftSaveTimeoutRef.current) {
+        clearTimeout(draftSaveTimeoutRef.current);
+        draftSaveTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleAddAccessory = useCallback(
     async (asset: AccessoryAsset) => {
@@ -82,6 +130,103 @@ export const DesignEditor = ({
     },
     []
   );
+
+  const handleInitialLoad = useCallback((getCanvasJson: () => string) => {
+    lastSnapshotRef.current = getCanvasJson() || null;
+  }, []);
+
+  const handlePushUndoAndDraft = useCallback(
+    (getCanvasJson: () => string) => {
+      if (skipPushUndoRef.current) return;
+      const prev = lastSnapshotRef.current;
+      if (prev) pushUndo(prev);
+      lastSnapshotRef.current = getCanvasJson() || null;
+      if (typeof window === "undefined" || !baseSvgUrl) return;
+      if (draftSaveTimeoutRef.current) clearTimeout(draftSaveTimeoutRef.current);
+      draftSaveTimeoutRef.current = setTimeout(() => {
+        draftSaveTimeoutRef.current = null;
+        try {
+          const key = `${DRAFT_STORAGE_KEY_PREFIX}${designId}`;
+          window.localStorage.setItem(
+            key,
+            JSON.stringify({
+              baseSvgUrl,
+              canvasJson: getCanvasJson(),
+              savedAt: Date.now(),
+            } as DraftPayload)
+          );
+        } catch {
+          // ignore quota or parse errors
+        }
+      }, DRAFT_SAVE_DEBOUNCE_MS);
+    },
+    [baseSvgUrl, designId, pushUndo]
+  );
+
+  const handleUndo = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const currentJson = canvas.getCanvasJson();
+    if (!currentJson) return;
+    const result = undo(currentJson);
+    if (!result) return;
+    lastSnapshotRef.current = result.snapshotToApply;
+    skipPushUndoRef.current = true;
+    canvas.loadFromJSON(result.snapshotToApply).then(() => {
+      setTimeout(() => {
+        skipPushUndoRef.current = false;
+      }, 600);
+    });
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const currentJson = canvas.getCanvasJson();
+    if (!currentJson) return;
+    const result = redo(currentJson);
+    if (!result) return;
+    lastSnapshotRef.current = result.snapshotToApply;
+    skipPushUndoRef.current = true;
+    canvas.loadFromJSON(result.snapshotToApply).then(() => {
+      setTimeout(() => {
+        skipPushUndoRef.current = false;
+      }, 600);
+    });
+  }, [redo]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target?.closest?.("input") || target?.closest?.("textarea") || target?.closest?.("[contenteditable]")) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const active = canvas.getCanvas()?.getActiveObject();
+        if (active) {
+          e.preventDefault();
+          const json = canvas.getCanvasJson();
+          if (json) pushUndo(json);
+          canvas.removeSelectedObject();
+        }
+        return;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "y") {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [pushUndo, handleUndo, handleRedo]);
 
   const handleSave = useCallback(async () => {
     if (!baseSvgUrl) {
@@ -123,6 +268,11 @@ export const DesignEditor = ({
         return;
       }
       const savedId = data.designId;
+      try {
+        window.localStorage.removeItem(`${DRAFT_STORAGE_KEY_PREFIX}${designId === "new" ? "new" : designId}`);
+      } catch {
+        // ignore
+      }
       if (designId === "new" && savedId) {
         window.location.href = `/design/${savedId}`;
         return;
@@ -208,17 +358,58 @@ export const DesignEditor = ({
             </div>
             <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
               {loadState === "loading" && (
-                <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading design…</p>
+                <div className="flex flex-col items-center gap-4" aria-live="polite">
+                  <div
+                    className="h-[320px] w-full max-w-[512px] animate-pulse rounded-lg bg-zinc-200 dark:bg-zinc-700"
+                    aria-hidden
+                  />
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading design…</p>
+                </div>
               )}
               {loadState === "error" && (
-                <p className="text-sm text-red-600 dark:text-red-400">Failed to load design.</p>
+                <div className="flex flex-col items-center gap-4 py-8 text-center">
+                  <p className="text-sm text-red-600 dark:text-red-400">Failed to load design.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    aria-label="Retry loading design"
+                    onClick={() => {
+                      setLoadState("loading");
+                      fetch(`/api/load-design?id=${encodeURIComponent(designId)}`)
+                        .then((res) => {
+                          if (!res.ok) {
+                            setLoadState("error");
+                            return;
+                          }
+                          return res.json().catch(() => ({}));
+                        })
+                        .then((data) => {
+                          if (!data) return;
+                          setBaseSvgUrl(data.baseSvgUrl ?? null);
+                          setCanvasJson(data.canvasJson ?? null);
+                          setInitialJsonToLoad(data.canvasJson ?? null);
+                          setLoadState("ready");
+                        })
+                        .catch(() => setLoadState("error"));
+                    }}
+                  >
+                    Retry
+                  </Button>
+                </div>
               )}
               {(loadState === "ready" || loadState === "idle") && (
                 <FabricCanvas
                   ref={canvasRef}
                   className="w-full max-w-[512px]"
-                  initialSvgUrl={canvasJson ? null : baseSvgUrl}
-                  initialCanvasJson={canvasJson}
+                  initialSvgUrl={initialJsonToLoad ? null : baseSvgUrl}
+                  initialCanvasJson={initialJsonToLoad}
+                  onObjectModifiedForUndo={handlePushUndoAndDraft}
+                  onInitialLoad={handleInitialLoad}
+                  onUndo={handleUndo}
+                  onRedo={handleRedo}
+                  canUndo={undoStack.length > 0}
+                  canRedo={redoStack.length > 0}
                 />
               )}
             </div>

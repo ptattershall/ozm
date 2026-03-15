@@ -1,5 +1,6 @@
 import { z, flattenError } from "zod";
 import { NextResponse } from "next/server";
+import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
 import {
   putObject,
@@ -20,6 +21,9 @@ const SaveDesignSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -66,6 +70,7 @@ export async function POST(request: Request) {
         data: {
           baseSvgUrl,
           canvasJson,
+          userId,
           ...(thumbnailUrl != null && { thumbnailUrl }),
         },
       });
@@ -79,6 +84,7 @@ export async function POST(request: Request) {
       data: {
         baseSvgUrl,
         canvasJson,
+        userId,
       },
     });
     const id = design.id;

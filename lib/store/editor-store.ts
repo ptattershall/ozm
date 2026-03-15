@@ -11,6 +11,8 @@ export type LayerItem = {
   hidden: boolean;
 };
 
+const MAX_UNDO = 50;
+
 type EditorState = {
   /** Getter for the Fabric canvas; set by FabricCanvas on mount. */
   getCanvas: (() => Canvas | null) | null;
@@ -19,6 +21,9 @@ type EditorState = {
   layers: LayerItem[];
   /** Incremented on object:modified so PropertiesPanel can re-read active object. */
   objectModifiedVersion: number;
+  /** Undo stack: canvas JSON snapshots (throttled on object:modified). */
+  undoStack: string[];
+  redoStack: string[];
 };
 
 type EditorActions = {
@@ -30,6 +35,12 @@ type EditorActions = {
   selectObjectById: (id: string) => void;
   /** Call when active object is modified (e.g. drag) so panels can re-read. */
   incrementObjectModified: () => void;
+  /** Push current canvas JSON to undo stack; clears redo. Call from throttled object:modified. */
+  pushUndo: (json: string) => void;
+  /** Pop undo stack and return snapshot to apply. Caller must pass current JSON to push to redo. */
+  undo: (currentJson: string) => { snapshotToApply: string } | null;
+  /** Pop redo stack and return snapshot to apply. Caller must pass current JSON to push to undo. */
+  redo: (currentJson: string) => { snapshotToApply: string } | null;
 };
 
 export type EditorStore = EditorState & EditorActions;
@@ -66,6 +77,8 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
   selectedObjectType: null,
   layers: [],
   objectModifiedVersion: 0,
+  undoStack: [],
+  redoStack: [],
 
   setCanvasGetter: (getter) => set({ getCanvas: getter }),
 
@@ -74,6 +87,34 @@ export const useEditorStore = create<EditorStore>()((set, get) => ({
 
   incrementObjectModified: () =>
     set((s) => ({ objectModifiedVersion: s.objectModifiedVersion + 1 })),
+
+  pushUndo: (json) =>
+    set((s) => ({
+      undoStack: [...s.undoStack.slice(-(MAX_UNDO - 1)), json],
+      redoStack: [],
+    })),
+
+  undo: (currentJson) => {
+    const { undoStack, redoStack } = get();
+    if (undoStack.length === 0) return null;
+    const snapshotToApply = undoStack[undoStack.length - 1];
+    set({
+      undoStack: undoStack.slice(0, -1),
+      redoStack: [...redoStack, currentJson],
+    });
+    return { snapshotToApply };
+  },
+
+  redo: (currentJson) => {
+    const { undoStack, redoStack } = get();
+    if (redoStack.length === 0) return null;
+    const snapshotToApply = redoStack[redoStack.length - 1];
+    set({
+      redoStack: redoStack.slice(0, -1),
+      undoStack: [...undoStack, currentJson],
+    });
+    return { snapshotToApply };
+  },
 
   syncLayers: () => {
     const { getCanvas } = get();

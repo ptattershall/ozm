@@ -1,64 +1,38 @@
 import { z, flattenError } from "zod";
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
+import { auth } from "@/auth";
 import { generateSvg } from "@/lib/ai";
+import { checkGenerateSvgRateLimit, getClientIp } from "@/lib/rate-limit";
+import { validatePrompt } from "@/lib/prompt-filter";
 import { sanitizeSvg } from "@/lib/sanitize-svg";
 import { uploadSvgAndGetUrl } from "@/lib/storage";
 
 const CANVAS_SIZE = 512;
 
 const GenerateSvgSchema = z.object({
-  prompt: z.string().min(1, "Prompt is required").max(500, "Prompt too long"),
+  prompt: z
+    .string()
+    .min(1, "Prompt is required")
+    .max(500, "Prompt must be at most 500 characters"),
   style: z.string().max(50).optional().default("sticker"),
 });
 
-/** In-memory rate limit: IP -> { count, resetAt }. Section 14 will add robust limits. */
-const rateLimitMap = new Map<
-  string,
-  { count: number; resetAt: number }
->();
-const RATE_LIMIT_WINDOW_MS = 60_000;
-const RATE_LIMIT_MAX = 15;
-
-function getClientIp(headers: Headers): string {
-  return (
-    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    headers.get("x-real-ip") ??
-    "unknown"
-  );
-}
-
-function checkRateLimit(ip: string): { allowed: boolean; retryAfter?: number } {
-  const now = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
-  if (now >= entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
-    return { allowed: true };
-  }
-  if (entry.count >= RATE_LIMIT_MAX) {
-    return { allowed: false, retryAfter: Math.ceil((entry.resetAt - now) / 1000) };
-  }
-  entry.count += 1;
-  return { allowed: true };
-}
-
 export async function POST(request: Request) {
   const startedAt = Date.now();
-  const ip = getClientIp(request.headers);
+  const session = await auth();
+  const userId = session?.user?.id ?? null;
 
-  const rate = checkRateLimit(ip);
+  const rate = checkGenerateSvgRateLimit(request, userId);
   if (!rate.allowed) {
     return NextResponse.json(
-      { error: "Too many requests. Please try again later." },
+      { error: rate.error },
       {
         status: 429,
-        headers: rate.retryAfter
-          ? { "Retry-After": String(rate.retryAfter) }
-          : undefined,
+        headers:
+          rate.retryAfter !== undefined
+            ? { "Retry-After": String(rate.retryAfter) }
+            : undefined,
       }
     );
   }
@@ -82,6 +56,14 @@ export async function POST(request: Request) {
   }
 
   const { prompt, style } = parsed.data;
+
+  const filterResult = validatePrompt(prompt);
+  if (!filterResult.allowed) {
+    return NextResponse.json(
+      { error: filterResult.error },
+      { status: 400 }
+    );
+  }
 
   const aiResult = await generateSvg(prompt, style);
 
@@ -122,7 +104,8 @@ export async function POST(request: Request) {
       durationMs,
       promptLength: prompt.length,
       responseSize: sanitized.length,
-      ip,
+      ip: getClientIp(request.headers),
+      userId: userId ?? undefined,
     })
   );
 

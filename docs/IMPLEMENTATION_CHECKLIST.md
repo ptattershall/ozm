@@ -50,10 +50,10 @@
 
 ## 0b. Auth (Auth.js)
 
-- [ ] Install Auth.js + Prisma adapter; add Auth.js models to Prisma and run migration
-- [ ] Configure auth (`auth.ts`), API route `api/auth/[...nextauth]`, SessionProvider in layout
-- [ ] Sign-in / sign-up pages and header (sign in, sign out)
-- [ ] Tie designs to user: set `Design.userId` from session in save-design API
+- [x] Install Auth.js + Prisma adapter; add Auth.js models to Prisma and run migration
+- [x] Configure auth (`auth.ts`), API route `api/auth/[...nextauth]`, SessionProvider in layout
+- [x] Sign-in / sign-up pages and header (sign in, sign out)
+- [x] Tie designs to user: set `Design.userId` from session in save-design API
 
 **Detailed checklist:** [docs/AUTH_CHECKLIST.md](docs/AUTH_CHECKLIST.md)  
 **Plan & architecture:** [docs/AUTH_PLAN.md](docs/AUTH_PLAN.md)
@@ -291,13 +291,13 @@ canvas.toJSON([...customProps])
 
 ## 14. Rate Limiting + Abuse Protection
 
-- [ ] Add rate limiting to `/api/generate-svg`
-  - [ ] IP-based limits
-  - [ ] Optional user-based limits (when auth exists)
-- [ ] Add prompt filtering constraints
-  - [ ] Length cap
-  - [ ] Blocked terms list (optional)
-- [ ] Add daily free generation count (feature flag / env)
+- [x] Add rate limiting to `/api/generate-svg`
+  - [x] IP-based limits
+  - [x] Optional user-based limits (when auth exists)
+- [x] Add prompt filtering constraints
+  - [x] Length cap
+  - [x] Blocked terms list (optional)
+- [x] Add daily free generation count (feature flag / env)
 
 > **Definition of Done:** You can't get cost-spiked by a single bad actor.
 
@@ -305,14 +305,14 @@ canvas.toJSON([...customProps])
 
 ## 15. Error Handling & UX Polish
 
-- [ ] "Regenerate" button (keeps prompt)
-- [ ] "Undo/Redo"
-  - [ ] Simple stack: save JSON snapshots on change (throttled)
-- [ ] Autosave draft locally (`localStorage`) before DB save
-- [ ] Empty states, better loading skeletons
-- [ ] Keyboard shortcuts
-  - [ ] Delete selected
-  - [ ] `Ctrl/Cmd + Z` / `Shift+Z`
+- [x] "Regenerate" button (keeps prompt)
+- [x] "Undo/Redo"
+  - [x] Simple stack: save JSON snapshots on change (throttled)
+- [x] Autosave draft locally (`localStorage`) before DB save
+- [x] Empty states, better loading skeletons
+- [x] Keyboard shortcuts
+  - [x] Delete selected
+  - [x] `Ctrl/Cmd + Z` / `Shift+Z`
 
 ---
 
